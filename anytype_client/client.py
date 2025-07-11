@@ -609,6 +609,7 @@ class AnytypeClient(BaseClient[Any]):
             members = []
             for member_data in response["data"]:
                 try:
+                    member_data["space_id"] = space_id  # Add space_id for backward compatibility
                     members.append(Member.model_validate(member_data))
                 except Exception:
                     logger.error(f"Failed to parse member data: {member_data}")
@@ -617,7 +618,11 @@ class AnytypeClient(BaseClient[Any]):
 
         # Fallback for other formats
         if isinstance(response, list):
-            return [Member.model_validate(member) for member in response]
+            members = []
+            for member_data in response:
+                member_data["space_id"] = space_id
+                members.append(Member.model_validate(member_data))
+            return members
 
         logger.warning(f"Unexpected response format: {type(response)}")
         return []
@@ -633,6 +638,11 @@ class AnytypeClient(BaseClient[Any]):
             Member object with details.
         """
         response = self.request("GET", f"spaces/{space_id}/members/{member_id}")
+        # Handle nested response format
+        if isinstance(response, dict) and "member" in response:
+            member_data = response["member"]
+            member_data["space_id"] = space_id  # Add space_id for backward compatibility
+            return Member.model_validate(member_data)
         return Member.model_validate(response)
 
     def invite_member(self, invite_data: MemberInvite) -> Member:
@@ -1284,7 +1294,11 @@ class AsyncAnytypeClient(BaseClient[Any]):
 
         # Fallback for other formats
         if isinstance(response, list):
-            return [Member.model_validate(member) for member in response]
+            members = []
+            for member_data in response:
+                member_data["space_id"] = space_id
+                members.append(Member.model_validate(member_data))
+            return members
 
         logger.warning(f"Unexpected response format: {type(response)}")
         return []

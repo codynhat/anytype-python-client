@@ -361,16 +361,46 @@ class MemberRole(str, Enum):
     VIEWER = "viewer"
 
 
-class Member(BaseAnytypeModel):
+class Member(BaseModel):
     """Represents a member in a space."""
 
+    id: str
     name: str
-    email: Optional[str] = None
+    identity: Optional[str] = None  # Network identity instead of email
+    global_name: Optional[str] = None  # Global username like "beaucronin.any"
     role: MemberRole
-    avatar: Optional[str] = None
-    joined_at: datetime
-    last_active: Optional[datetime] = None
-    is_active: bool = True
+    icon: Optional[str] = None  # API uses 'icon' not 'avatar'
+    status: str = "active"  # API uses 'status' not 'is_active'
+    space_id: Optional[str] = None  # For backward compatibility
+    
+    # For backward compatibility
+    @property
+    def email(self) -> Optional[str]:
+        """Get email from global_name if it looks like an email."""
+        if self.global_name and "@" in self.global_name:
+            return self.global_name
+        return None
+    
+    @property
+    def avatar(self) -> Optional[str]:
+        """Alias for icon for backward compatibility."""
+        return self.icon
+    
+    @property
+    def is_active(self) -> bool:
+        """Check if member is active based on status."""
+        return self.status == "active"
+    
+    @property
+    def joined_at(self) -> datetime:
+        """Provide a fake joined_at for backward compatibility."""
+        from datetime import datetime, timezone
+        return datetime.now(timezone.utc)
+    
+    @property
+    def last_active(self) -> Optional[datetime]:
+        """Provide None for last_active for backward compatibility."""
+        return None
 
 
 class MemberInvite(BaseModel):
