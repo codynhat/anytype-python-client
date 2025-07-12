@@ -1289,6 +1289,7 @@ class AsyncAnytypeClient(BaseClient[Any]):
             members = []
             for member_data in response["data"]:
                 try:
+                    member_data["space_id"] = space_id  # Add space_id for backward compatibility
                     members.append(Member.model_validate(member_data))
                 except Exception:
                     logger.error(f"Failed to parse member data: {member_data}")
@@ -1309,6 +1310,11 @@ class AsyncAnytypeClient(BaseClient[Any]):
     async def get_member(self, space_id: str, member_id: str) -> Member:
         """Get details for a specific member (async)."""
         response = await self.request("GET", f"spaces/{space_id}/members/{member_id}")
+        # Handle nested response format
+        if isinstance(response, dict) and "member" in response:
+            member_data = response["member"]
+            member_data["space_id"] = space_id  # Add space_id for backward compatibility
+            return Member.model_validate(member_data)
         return Member.model_validate(response)
 
     async def invite_member(self, invite_data: MemberInvite) -> Member:
