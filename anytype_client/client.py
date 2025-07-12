@@ -1171,6 +1171,9 @@ class AsyncAnytypeClient(BaseClient[Any]):
         response = await self.request(
             "PATCH", f"spaces/{space_id}/objects/{object_id}", json_data=updates
         )
+        # Handle nested response format
+        if isinstance(response, dict) and "object" in response:
+            return Object.model_validate(response["object"])
         return Object.model_validate(response)
 
     async def delete_object(self, space_id: str, object_id: str) -> bool:

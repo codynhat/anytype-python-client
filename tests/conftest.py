@@ -40,11 +40,15 @@ def event_loop():
     loop.close()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")  # Changed from session to function
 async def async_client(api_key: str) -> AsyncGenerator[AsyncAnytypeClient, None]:
     """Provide an asynchronous Anytype client."""
-    async with AsyncAnytypeClient(api_key=api_key) as client:
+    client = AsyncAnytypeClient(api_key=api_key)
+    await client.connect()
+    try:
         yield client
+    finally:
+        await client.close()
 
 
 @pytest.fixture(scope="session")
