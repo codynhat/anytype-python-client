@@ -1,4 +1,5 @@
 """Data models for the Anytype API."""
+
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List as ListType, Optional, Union, Literal
@@ -30,23 +31,24 @@ class ObjectType(str, Enum):
 class RelationFormat(str, Enum):
     """Formats for relation values.
 
-    Note: Properties are experimental in Anytype API and may change.
-    Including all formats found in the actual API responses.
+    Based on API documentation: https://developers.anytype.io/docs/reference/2025-05-20/create-property
     """
 
-    TEXT = "text"  # Confirmed working format
+    TEXT = "text"
     NUMBER = "number"
+    SELECT = "select"
+    MULTI_SELECT = "multi_select"
     DATE = "date"
+    FILES = "files"
     CHECKBOX = "checkbox"
-    OBJECTS = "objects"  # Found in API responses (plural)
-    SELECT = "select"  # Found in API responses
-    MULTI_SELECT = "multi_select"  # Found in API responses
-    # Legacy aliases for backward compatibility
-    SHORT_TEXT = "text"
-    LONG_TEXT = "text"  # Map to text since longtext not supported
     URL = "url"
     EMAIL = "email"
     PHONE = "phone"
+    OBJECTS = "objects"
+
+    # Legacy aliases for backward compatibility
+    SHORT_TEXT = "text"
+    LONG_TEXT = "text"
     EMOJI = "emoji"
     OBJECT = "object"
     TAGS = "tags"
@@ -55,16 +57,22 @@ class RelationFormat(str, Enum):
 
 
 class LayoutType(str, Enum):
-    """Layout types for objects."""
+    """Layout types for objects.
+
+    Based on API documentation: https://developers.anytype.io/docs/reference/2025-05-20/create-type
+    """
 
     BASIC = "basic"
     PROFILE = "profile"
-    TODO = "todo"
-    SET = "set"
-    COLLECTION = "collection"
-    SPACE = "space"
-    BOOKMARK = "bookmark"
+    ACTION = "action"
     NOTE = "note"
+
+    # Legacy aliases for backward compatibility
+    TODO = "action"
+    SET = "basic"
+    COLLECTION = "basic"
+    SPACE = "basic"
+    BOOKMARK = "basic"
 
 
 # Base Models
@@ -144,10 +152,20 @@ class ObjectLink(BaseModel):
 
 
 class PropertyValue(BaseModel):
-    """Represents a property value with its type information."""
+    """Represents a property value with its type information.
 
-    type: RelationFormat
-    value: Any
+    Based on API documentation: https://developers.anytype.io/docs/reference/2025-05-20/create-object
+    """
+
+    key: str = Field(..., description="Property key")
+    value: Any = Field(..., description="Property value")
+
+    # For backward compatibility
+    @property
+    def type(self) -> RelationFormat:
+        """Get the property format type."""
+        # This is a simplified mapping - actual format should be determined from property definition
+        return RelationFormat.TEXT
 
 
 class Property(BaseModel):
@@ -166,51 +184,94 @@ class Property(BaseModel):
 
 
 class ObjectCreate(BaseModel):
-    """Model for creating a new Anytype object."""
+    """Model for creating a new Anytype object.
 
-    name: str
+    Based on API documentation: https://developers.anytype.io/docs/reference/2025-05-20/create-object
+    """
+
+    name: str = Field(..., description="Name of the object")
     type_key: str = Field(..., description="The type key for the object (e.g., 'page', 'note')")
     layout: Optional[LayoutType] = Field(None, description="Layout type for the object")
-    space_id: Optional[str] = Field(None, description="ID of the space (will be set by client)")
+    space_id: str = Field(..., description="ID of the space")
     properties: Optional[ListType[Dict[str, Any]]] = Field(
         None, description="Properties as array of key-value objects"
     )
-    icon_emoji: Optional[str] = None
-    icon_image: Optional[str] = None
-    cover_id: Optional[str] = None
-    cover_type: Optional[str] = None
-    template_id: Optional[str] = None
+    icon: Optional[Dict[str, Any]] = Field(None, description="Icon configuration")
+    body: Optional[str] = Field(None, description="Body content (supports Markdown)")
+    description: Optional[str] = Field(None, description="Object description")
+    source_url: Optional[str] = Field(None, description="Source URL (required for bookmarks)")
+    template_id: Optional[str] = Field(None, description="Template identifier")
+
+    # For backward compatibility
+    @property
+    def icon_emoji(self) -> Optional[str]:
+        """Get emoji from icon configuration."""
+        if self.icon and self.icon.get("format") == "emoji":
+            return self.icon.get("emoji")
+        return None
+
+    @property
+    def icon_image(self) -> Optional[str]:
+        """Get image URL from icon configuration."""
+        if self.icon and self.icon.get("format") == "image":
+            return self.icon.get("url")
+        return None
 
 
 class ObjectUpdate(BaseModel):
-    """Model for updating an existing Anytype object."""
+    """Model for updating an existing Anytype object.
 
-    name: Optional[str] = None
-    properties: Optional[Dict[str, Any]] = None
-    relations: Optional[Dict[str, ListType[Dict[str, Any]]]] = None
-    icon_emoji: Optional[str] = None
-    icon_image: Optional[str] = None
-    cover_id: Optional[str] = None
-    cover_type: Optional[str] = None
-    is_archived: Optional[bool] = None
-    is_favorite: Optional[bool] = None
+    Based on API documentation: https://developers.anytype.io/docs/reference/2025-05-20/update-object
+    """
+
+    name: Optional[str] = Field(None, description="Updated name of the object")
+    properties: Optional[ListType[Dict[str, Any]]] = Field(
+        None, description="Properties as array of key-value objects"
+    )
+    icon: Optional[Dict[str, Any]] = Field(None, description="Updated icon configuration")
+    body: Optional[str] = Field(None, description="Updated body content")
+    description: Optional[str] = Field(None, description="Updated object description")
+    source_url: Optional[str] = Field(None, description="Updated source URL")
+    is_archived: Optional[bool] = Field(None, description="Whether to archive the object")
+    is_favorite: Optional[bool] = Field(None, description="Whether to favorite the object")
+
+    # For backward compatibility
+    @property
+    def icon_emoji(self) -> Optional[str]:
+        """Get emoji from icon configuration."""
+        if self.icon and self.icon.get("format") == "emoji":
+            return self.icon.get("emoji")
+        return None
+
+    @property
+    def icon_image(self) -> Optional[str]:
+        """Get image URL from icon configuration."""
+        if self.icon and self.icon.get("format") == "image":
+            return self.icon.get("url")
+        return None
 
 
 class Object(BaseAnytypeModel):
-    """Represents an Anytype object."""
+    """Represents an Anytype object.
 
-    name: str
+    Based on API documentation: https://developers.anytype.io/docs/reference/2025-05-20/get-object
+    """
+
+    name: str = Field(..., description="Name of the object")
     type: Dict[str, Any] = Field(..., description="Type object with id, key, name, etc.")
-    layout: Union[LayoutType, str]
+    layout: Union[LayoutType, str] = Field(..., description="Layout type")
     properties: ListType[Dict[str, Any]] = Field(
         default_factory=list, description="Properties as array of objects"
     )
-    space_id: str
-    snippet: Optional[str] = None
-    archived: bool = False
-    icon: Optional[Dict[str, Any]] = None
-    is_favorite: Optional[bool] = None
-    is_archived: Optional[bool] = None
+    snippet: Optional[str] = Field(None, description="Text snippet/preview")
+    archived: bool = Field(False, description="Whether the object is archived")
+    icon: Optional[Dict[str, Any]] = Field(None, description="Icon configuration")
+    is_favorite: Optional[bool] = Field(None, description="Whether the object is favorited")
+    is_archived: Optional[bool] = Field(None, description="Whether the object is archived")
+    body: Optional[str] = Field(None, description="Body content in Markdown format")
+    description: Optional[str] = Field(None, description="Object description")
+    source_url: Optional[str] = Field(None, description="Source URL for bookmarks")
+    last_opened_date: Optional[datetime] = Field(None, description="Last opened timestamp")
 
     # Computed properties for backward compatibility
     @property
@@ -222,6 +283,20 @@ class Object(BaseAnytypeModel):
     def type_name(self) -> Optional[str]:
         """Get the type name from the type object."""
         return self.type.get("name") if isinstance(self.type, dict) else None
+
+    @property
+    def icon_emoji(self) -> Optional[str]:
+        """Get emoji from icon configuration."""
+        if self.icon and self.icon.get("format") == "emoji":
+            return self.icon.get("emoji")
+        return None
+
+    @property
+    def icon_image(self) -> Optional[str]:
+        """Get image URL from icon configuration."""
+        if self.icon and self.icon.get("format") == "image":
+            return self.icon.get("url")
+        return None
 
 
 # Type Models
@@ -372,7 +447,7 @@ class Member(BaseModel):
     icon: Optional[str] = None  # API uses 'icon' not 'avatar'
     status: str = "active"  # API uses 'status' not 'is_active'
     space_id: Optional[str] = None  # For backward compatibility
-    
+
     # For backward compatibility
     @property
     def email(self) -> Optional[str]:
@@ -380,23 +455,24 @@ class Member(BaseModel):
         if self.global_name and "@" in self.global_name:
             return self.global_name
         return None
-    
+
     @property
     def avatar(self) -> Optional[str]:
         """Alias for icon for backward compatibility."""
         return self.icon
-    
+
     @property
     def is_active(self) -> bool:
         """Check if member is active based on status."""
         return self.status == "active"
-    
+
     @property
     def joined_at(self) -> datetime:
         """Provide a fake joined_at for backward compatibility."""
         from datetime import datetime, timezone
+
         return datetime.now(timezone.utc)
-    
+
     @property
     def last_active(self) -> Optional[datetime]:
         """Provide None for last_active for backward compatibility."""
