@@ -6,7 +6,16 @@ This module provides both synchronous and asynchronous clients for interacting w
 
 import logging
 import os
-from typing import Any, Dict, Generic, List as ListType, Optional, Type, TypeVar, Union
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List as ListType,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+)
 from urllib.parse import urljoin
 
 import httpx
@@ -39,6 +48,7 @@ from .models import (
     List,
     ListCreate,
     ListUpdate,
+    ListResponse,
     Member,
     MemberInvite,
     MemberUpdate,
@@ -372,8 +382,8 @@ class AnytypeClient(BaseClient[Any]):
     # Object methods
     def list_objects(
         self, space_id: str, params: Optional[PaginationParams] = None
-    ) -> ListType[Object]:
-        """List all objects in a space.
+    ) -> ListResponse:
+        """List objects in a space with pagination support.
 
         Args:
             space_id: ID of the space to list objects from.
@@ -388,21 +398,10 @@ class AnytypeClient(BaseClient[Any]):
 
         # Handle paginated response format
         if isinstance(response, dict) and "data" in response and isinstance(response["data"], list):
-            objects = []
-            for object_data in response["data"]:
-                try:
-                    objects.append(Object.model_validate(object_data))
-                except Exception:
-                    logger.error(f"Failed to parse object data: {object_data}")
-                    raise
-            return objects
-
-        # Fallback for other formats
-        if isinstance(response, list):
-            return [Object.model_validate(obj) for obj in response]
+            return ListResponse.model_validate(response)
 
         logger.warning(f"Unexpected response format: {type(response)}")
-        return []
+        return None
 
     def get_object(self, space_id: str, object_id: str) -> Object:
         """Get an object by ID.
