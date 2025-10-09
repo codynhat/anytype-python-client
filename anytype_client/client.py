@@ -3,6 +3,7 @@ Main client implementation for the Anytype API.
 
 This module provides both synchronous and asynchronous clients for interacting with the Anytype API.
 """
+
 import logging
 import os
 from typing import Any, Dict, Generic, List as ListType, Optional, Type, TypeVar, Union
@@ -369,6 +370,40 @@ class AnytypeClient(BaseClient[Any]):
         return True
 
     # Object methods
+    def list_objects(
+        self, space_id: str, params: Optional[PaginationParams] = None
+    ) -> ListType[Object]:
+        """List all objects in a space.
+
+        Args:
+            space_id: ID of the space to list objects from.
+            params: Optional pagination parameters.
+
+        Returns:
+            List of Object objects.
+        """
+        endpoint = f"spaces/{space_id}/objects"
+        query_params = params.model_dump() if params else {}
+        response = self.request("GET", endpoint, params=query_params)
+
+        # Handle paginated response format
+        if isinstance(response, dict) and "data" in response and isinstance(response["data"], list):
+            objects = []
+            for object_data in response["data"]:
+                try:
+                    objects.append(Object.model_validate(object_data))
+                except Exception:
+                    logger.error(f"Failed to parse object data: {object_data}")
+                    raise
+            return objects
+
+        # Fallback for other formats
+        if isinstance(response, list):
+            return [Object.model_validate(obj) for obj in response]
+
+        logger.warning(f"Unexpected response format: {type(response)}")
+        return []
+
     def get_object(self, space_id: str, object_id: str) -> Object:
         """Get an object by ID.
 
@@ -1148,6 +1183,40 @@ class AsyncAnytypeClient(BaseClient[Any]):
         return True
 
     # Object methods (async versions)
+    async def list_objects(
+        self, space_id: str, params: Optional[PaginationParams] = None
+    ) -> ListType[Object]:
+        """List all objects in a space (async).
+
+        Args:
+            space_id: ID of the space to list objects from.
+            params: Optional pagination parameters.
+
+        Returns:
+            List of Object objects.
+        """
+        endpoint = f"spaces/{space_id}/objects"
+        query_params = params.model_dump() if params else {}
+        response = await self.request("GET", endpoint, params=query_params)
+
+        # Handle paginated response format
+        if isinstance(response, dict) and "data" in response and isinstance(response["data"], list):
+            objects = []
+            for object_data in response["data"]:
+                try:
+                    objects.append(Object.model_validate(object_data))
+                except Exception:
+                    logger.error(f"Failed to parse object data: {object_data}")
+                    raise
+            return objects
+
+        # Fallback for other formats
+        if isinstance(response, list):
+            return [Object.model_validate(obj) for obj in response]
+
+        logger.warning(f"Unexpected response format: {type(response)}")
+        return []
+
     async def get_object(self, space_id: str, object_id: str) -> Object:
         """Get an object by ID (async)."""
         response = await self.request("GET", f"spaces/{space_id}/objects/{object_id}")
